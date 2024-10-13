@@ -1,0 +1,17 @@
+{
+  "name": "vdsbot",
+  "version": "1.0.0",
+  "description": "Utility bot for managing ingress on VDS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "viossa"
+  ],
+  "author": "Nikoraito@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}
