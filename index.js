@@ -22,7 +22,7 @@ const { Client, Events, Collection, GatewayIntentBits } = require('discord.js');
 
 let bot_instance = {
 	max_ingresses_per_period: 10,
-	wave_period: 60 * 1000 * 60,
+	wave_period_seconds: 60 * 60,
 	titrating: false,
 	titration_callback: null,
 	users: [],
@@ -30,7 +30,7 @@ let bot_instance = {
 	MIK_ROLE_ID: '1225891567378894960',
 	GUILD_ID: auth.GUILD_ID,
 	BOT_ID: auth.BOT_ID,
-	mik_role:null,
+	mik_role: null,
 	initialize,
 	apply_mik,
 	titrate,
@@ -39,10 +39,10 @@ let bot_instance = {
 	set_max_ingresses,
 	approve_all_before,
 	enable_titration,
-	enable_titration_after,
 	disable_titration,
 	get_first_unapproved,
 	is_everyone_approved,
+	get_unapproved_count
 };
 
 if (require.main === module) {
@@ -123,33 +123,42 @@ function initialize() {
 }
 
 function apply_mik(user) {
-	if(bot_instance.guild != null && bot_instance.mik_role == null){
-		bot_instance.mik_role = bot_instance.guild.roles.cache.get(bot_instance.MIK_ROLE_ID);
+	if (bot_instance.guild != null && bot_instance.mik_role == null) {
+		bot_instance.mik_role = bot_instance.guild.roles.cache.get(
+			bot_instance.MIK_ROLE_ID
+		);
 	}
 
-	user.roles.add(bot_instance.mik_role)
-	.then(() => console.log(`Mikified ${user.username}`))
-	.catch(console.error);
-	console.log(`Mikified ${user.user.username}`);
+	user.roles
+		.add(bot_instance.mik_role)
+		.then(() => console.log(`Mikified ${user.user.username}`))
+		.catch(console.error);
 }
 
-function titrate() {
-	if (!titrating) return;
-
-	//begin turnstiling/titrating people into the server starting from `timestamp`
-	// max_ingresses_per_period
-	// wave_period
+async function titrate(count) {
+	//titrate a count of users, either manually or based on the setInterval schedule.
 	let ingresses = 0;
-	for (const user of users) {
+	let users = await get_users();
+	users.sort((a, b) => a.joinedAt - b.joinedAt);
+	let oldest = await get_first_unapproved();
+	let start_timestamp = oldest.joinedAt.getTime();
+
+	for await (let user of users) {
 		if (
-			user.joinedAt.getTime() > timestamp &&
-			!user.roles.cache.has(bot_instance.MIK_ROLE_ID)
+			user[1].joinedAt.getTime() >= start_timestamp &&
+			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)
 		) {
-			apply_mik(user);
-			ingresses++;
-			if (ingresses > max_ingresses_per_period) {
-				return;
+			if ((ingresses + 1) > count) {
+				return ingresses;
 			}
+
+			try {
+				apply_mik(user[1]);
+				ingresses++;
+			} catch {
+				console.error(`Failed to mikify ${user}`);
+			}
+			
 		}
 	}
 }
@@ -175,30 +184,32 @@ async function approve_all_before(timestamp_milliseconds) {
 	let users = await get_users();
 	let count = 0;
 	for await (let user of users) {
-		if (user[1].joinedAt.getTime() < timestamp_milliseconds && !user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)) {
-			try{
+		if (
+			user[1].joinedAt.getTime() < timestamp_milliseconds &&
+			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)
+		) {
+			try {
 				apply_mik(user[1]);
 				count++;
 			} catch {
-				console.log(`Failed to mikify ${user}`);
+				console.error(`Failed to mikify ${user}`);
 			}
 		}
 	}
 	return count;
 }
 
-function enable_titration() {
-	enable_titration_after(get_first_unapproved().joinedAt);
-}
-
-function enable_titration_after(timestamp) {
+function enable_titration(desired_ingresses, period) {
 	titrating = true;
-	titration_callback = setInterval(titrate, wave_period);
+	bot_instance.titration_callback = setInterval(() => {
+		if (!titrating) return;
+		titrate(desired_ingresses);
+	}, period*1000);
 }
 
 function disable_titration() {
 	titrating = false;
-	clearInterval(titration_callback);
+	clearInterval(bot_instance.titration_callback);
 }
 
 async function get_first_unapproved() {
@@ -218,19 +229,26 @@ function is_approved(user) {
 }
 
 async function is_everyone_approved() {
-	let users = await get_users();
-	let i = 0;
-	users.sort((a, b) => a.joinedAt - b.joinedAt);
-	users.forEach((u) => {
-		if (is_approved(u)) {
-			i++
-
-		};
-	});
-
-	console.log(`${i} users of ${users.length} are approved.`);
+	return ((await get_unapproved_count()) > (await get_users()).length);
 }
 
+
+async function get_unapproved_count() {
+
+	let users = await get_users();
+	let i = 0;
+
+	users.sort((a, b) => a.joinedAt - b.joinedAt);
+	users.forEach((u) => {
+		if (!(is_approved(u))) {
+			i++;
+		}
+	});
+
+	console.log(`${i} users of ${users.size} are unapproved.`);
+	
+	return i;
+}
 
 /**
  * Ka jam na du branai, ker f'un?
@@ -238,27 +256,27 @@ async function is_everyone_approved() {
  * dwaibma mono ke fshto, aha?
  * vikti zoljdu shiru to:
  * dua htja nai bloge jo!
- * 
+ *
  * Un duanai, du duanai, aha
  * Un duanai, du duanai, aha
  * Un duanai, du duanai, aha
  * Un duanai, du duanai
- * 
+ *
  * da da da
  * da da da
  * da da da
- * 
+ *
  * Nu nu mie du obakvel, aha?
  * Alting owari na sjal, aha?
  * Auen sol ja spaadahtell', aha?
  * Tontidjin mit fsebe keks,
  * Pravda sentaku dan shkeks!
- * 
+ *
  * Un duanai, du duanai, aha
  * Un duanai, du duanai, aha
  * Un duanai, du duanai, aha
  * Un duanai, du duanai
- * 
+ *
  * da da da
  * da da da
  * da da da
