@@ -202,17 +202,17 @@ async function approve_all_before(timestamp_milliseconds) {
 }
 
 function enable_titration(desired_ingresses, period) {
-	if(titrating) disable_titration();
+	if(bot_instance.titrating) disable_titration();
 
-	titrating = true;
+	bot_instance.titrating = true;
 	bot_instance.titration_callback = setInterval(() => {
-		if (!titrating) return;
+		if (!bot_instance.titrating) return;
 		titrate(desired_ingresses);
 	}, period*1000);
 }
 
 function disable_titration() {
-	titrating = false;
+	bot_instance.titrating = false;
 	clearInterval(bot_instance.titration_callback);
 }
 
