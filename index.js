@@ -43,7 +43,7 @@ let bot_instance = {
 	disable_titration,
 	get_first_unapproved,
 	is_everyone_approved,
-	get_unapproved_count
+	get_unapproved_count,
 };
 
 if (require.main === module) {
@@ -91,9 +91,7 @@ function initialize() {
 		const command = interaction.client.commands.get(interaction.commandName);
 
 		if (!command) {
-			logger.error(
-				`No command matching ${interaction.commandName} was found.`
-			);
+			logger.error(`No command matching ${interaction.commandName} was found.`);
 			return;
 		}
 
@@ -149,7 +147,7 @@ async function titrate(count) {
 			user[1].joinedAt.getTime() >= start_timestamp &&
 			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)
 		) {
-			if ((ingresses + 1) > count) {
+			if (ingresses + 1 > count) {
 				return ingresses;
 			}
 
@@ -159,7 +157,6 @@ async function titrate(count) {
 			} catch {
 				logger.error(`Failed to mikify ${user}`);
 			}
-			
 		}
 	}
 }
@@ -202,13 +199,13 @@ async function approve_all_before(timestamp_milliseconds) {
 }
 
 function enable_titration(desired_ingresses, period) {
-	if(bot_instance.titrating) disable_titration();
+	if (bot_instance.titrating) disable_titration();
 
 	bot_instance.titrating = true;
 	bot_instance.titration_callback = setInterval(() => {
 		if (!bot_instance.titrating) return;
 		titrate(desired_ingresses);
-	}, period*1000);
+	}, period * 1000);
 }
 
 function disable_titration() {
@@ -233,24 +230,22 @@ function is_approved(user) {
 }
 
 async function is_everyone_approved() {
-	return ((await get_unapproved_count()) > (await get_users()).length);
+	return (await get_unapproved_count()) > (await get_users()).length;
 }
 
-
 async function get_unapproved_count() {
-
 	let users = await get_users();
 	let i = 0;
 
 	users.sort((a, b) => a.joinedAt - b.joinedAt);
 	users.forEach((u) => {
-		if (!(is_approved(u))) {
+		if (!is_approved(u)) {
 			i++;
 		}
 	});
 
 	logger.info(`${i} users of ${users.size} are unapproved.`);
-	
+
 	return i;
 }
 
