@@ -4,6 +4,7 @@ const path = require('node:path');
 const { Client, Events, Collection, GatewayIntentBits } = require('discord.js');
 const { logger } = require('./logging');
 
+
 /**
  * Titration scheme
  *
@@ -31,7 +32,11 @@ let bot_instance = {
 	MIK_ROLE_ID: '1225891567378894960',
 	GUILD_ID: auth.GUILD_ID,
 	BOT_ID: auth.BOT_ID,
+	APRROVAL_NOTIF_CHANNEL_ID: auth.APRROVAL_NOTIF_CHANNEL_ID,
+	ADMIN_NOTIF_CHANNEL_ID: auth.ADMIN_NOTIF_CHANNEL_ID,
 	mik_role: null,
+	info_channel: null,
+	admin_channel: null,
 	initialize,
 	apply_mik,
 	titrate,
@@ -116,6 +121,9 @@ function initialize() {
 	client.once(Events.ClientReady, (readyClient) => {
 		logger.info(`Ready! Logged in as ${readyClient.user.tag}`);
 		bot_instance.guild = client.guilds.cache.get(bot_instance.GUILD_ID);
+		bot_instance.info_channel = client.channels.cache.get(bot_instance.APRROVAL_NOTIF_CHANNEL_ID);
+		bot_instance.admin_channel = client.channels.cache.get(bot_instance.ADMIN_NOTIF_CHANNEL_ID);
+		bot_instance.admin_channel.send(`I'm awake! :3`);
 	});
 
 	client.login(auth.djs_token);
@@ -141,6 +149,7 @@ async function titrate(count) {
 	users.sort((a, b) => a.joinedAt - b.joinedAt);
 	let oldest = await get_first_unapproved();
 	let start_timestamp = oldest.joinedAt.getTime();
+	let titrated_users = [];
 
 	for await (let user of users) {
 		if (
@@ -148,14 +157,25 @@ async function titrate(count) {
 			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)
 		) {
 			if (ingresses + 1 > count) {
+				let msg = 'The following users are now approved:\n';
+
+				titrated_users.forEach((o)=>{
+					msg += `${o.user}\n`
+				});
+			
+				bot_instance.info_channel.send(msg);
+
 				return ingresses;
 			}
 
 			try {
 				apply_mik(user[1]);
+				titrated_users.push(user[1]);
 				ingresses++;
 			} catch {
-				logger.error(`Failed to mikify ${user}`);
+				let msg = `Failed to mikify ${user.username}`;
+				logger.error(msg);
+				bot_instance.admin_channel.send(msg);
 			}
 		}
 	}
