@@ -2,6 +2,7 @@ const auth = require('./auth');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Events, Collection, GatewayIntentBits } = require('discord.js');
+const { logger } = require('./logging');
 
 /**
  * Titration scheme
@@ -75,7 +76,7 @@ function initialize() {
 			if ('data' in command && 'execute' in command) {
 				client.commands.set(command.data.name, command);
 			} else {
-				console.log(
+				logger.warn(
 					`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
 				);
 			}
@@ -90,7 +91,7 @@ function initialize() {
 		const command = interaction.client.commands.get(interaction.commandName);
 
 		if (!command) {
-			console.error(
+			logger.error(
 				`No command matching ${interaction.commandName} was found.`
 			);
 			return;
@@ -99,7 +100,7 @@ function initialize() {
 		try {
 			await command.execute(interaction, bot_instance);
 		} catch (error) {
-			console.error(error);
+			logger.error(error);
 			if (interaction.replied || interaction.deferred) {
 				await interaction.followUp({
 					content: 'There was an error while executing this command!',
@@ -115,7 +116,7 @@ function initialize() {
 	});
 
 	client.once(Events.ClientReady, (readyClient) => {
-		console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+		logger.info(`Ready! Logged in as ${readyClient.user.tag}`);
 		bot_instance.guild = client.guilds.cache.get(bot_instance.GUILD_ID);
 	});
 
@@ -131,8 +132,8 @@ function apply_mik(user) {
 
 	user.roles
 		.add(bot_instance.mik_role)
-		.then(() => console.log(`Mikified ${user.user.username}`))
-		.catch(console.error);
+		.then(() => logger.info(`Mikified ${user.user.username}`))
+		.catch(logger.error);
 }
 
 async function titrate(count) {
@@ -156,7 +157,7 @@ async function titrate(count) {
 				apply_mik(user[1]);
 				ingresses++;
 			} catch {
-				console.error(`Failed to mikify ${user}`);
+				logger.error(`Failed to mikify ${user}`);
 			}
 			
 		}
@@ -165,6 +166,7 @@ async function titrate(count) {
 
 async function get_users() {
 	bot_instance.users = await bot_instance.guild.members.fetch();
+	logger.debug(`Got ${bot_instance.users.size} users`);
 	return bot_instance.users;
 }
 
@@ -192,7 +194,7 @@ async function approve_all_before(timestamp_milliseconds) {
 				apply_mik(user[1]);
 				count++;
 			} catch {
-				console.error(`Failed to mikify ${user}`);
+				logger.error(`Failed to mikify ${user}`);
 			}
 		}
 	}
@@ -200,6 +202,8 @@ async function approve_all_before(timestamp_milliseconds) {
 }
 
 function enable_titration(desired_ingresses, period) {
+	if(titrating) disable_titration();
+
 	titrating = true;
 	bot_instance.titration_callback = setInterval(() => {
 		if (!titrating) return;
@@ -245,7 +249,7 @@ async function get_unapproved_count() {
 		}
 	});
 
-	console.log(`${i} users of ${users.size} are unapproved.`);
+	logger.info(`${i} users of ${users.size} are unapproved.`);
 	
 	return i;
 }
@@ -265,6 +269,7 @@ async function get_unapproved_count() {
  * da da da
  * da da da
  * da da da
+ * da da da
  *
  * Nu nu mie du obakvel, aha?
  * Alting owari na sjal, aha?
@@ -277,6 +282,7 @@ async function get_unapproved_count() {
  * Un duanai, du duanai, aha
  * Un duanai, du duanai
  *
+ * da da da
  * da da da
  * da da da
  * da da da

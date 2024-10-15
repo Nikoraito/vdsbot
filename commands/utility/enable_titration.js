@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-
+const { logger } = require('../../logging');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('enable_titration')
@@ -23,10 +23,12 @@ module.exports = {
 		await bot_instance.enable_titration(desired_count, period);
 		let unapproved_count = await bot_instance.get_unapproved_count();
 		let estimated_minutes = (unapproved_count/desired_count)*(period/60);
+		let content = `Initiating approval titration at a rate of ${desired_count} users / ${period} seconds. 
+			_The server contains ${unapproved_count} unapproved users, so it will take approximately ${estimated_minutes} minutes (${estimated_minutes/60} hr.) to complete_`;
+		logger.info(content);
 		await interaction.reply({
-			content: `Initiating approval titration at a rate of ${desired_count} users / ${period} seconds. 
-			The server contains ${unapproved_count} unapproved users, so it will take approximately ${estimated_minutes} minutes (${estimated_minutes/60} hr.) to complete`,
-			ephemeral: true,
+			content,
+			ephemeral: false,
 		});
 	},
 };

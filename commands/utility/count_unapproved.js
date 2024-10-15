@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-
+const { logger } = require('../../logging');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('count_unapproved')
@@ -9,12 +9,14 @@ module.exports = {
 		let oldest_user = await bot_instance.get_first_unapproved();
 		let count_unapproved = await bot_instance.get_unapproved_count();
 		let total_users = (await bot_instance.get_users()).size;
+		let content =  
+		`The server contains ${total_users} users, of which **${count_unapproved}** have not been approved.
+		The oldest unapproved member is **${oldest_user.user.username} (${oldest_user.user.id})**, 
+		who joined at \`${oldest_user.joinedAt}\` \`${oldest_user.joinedAt.getTime()}\``
+		logger.info(content);
 		await interaction.reply({
-			content: 
-`The server contains ${total_users} users, of which **${count_unapproved}** have not been approved.
-The oldest unapproved member is **${oldest_user.user.username} (${oldest_user.user.id})**, 
-who joined at \`${oldest_user.joinedAt}\` \`${oldest_user.joinedAt.getTime()}\``,
-			ephemeral: true,
+			content,
+			ephemeral: false,
 		});
 	},
 };

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-
+const { logger } = require('../../logging');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('approve_before')
@@ -13,10 +13,12 @@ module.exports = {
 	async execute(interaction, bot_instance) {
 		let timestamp = interaction.options.getInteger('timestamp');
 		let count = await bot_instance.approve_all_before(timestamp);
+		let content = `Attempted to approve ${count} users. Verify actual role count.`; 
+		logger.info(content);
 
 		await interaction.reply({
-			content: `Attempted to approve ${count} users. Verify actual role count.`,
-			ephemeral: true,
+			content,
+			ephemeral: false,
 		});
 	},
 };

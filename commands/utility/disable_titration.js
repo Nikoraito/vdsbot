@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-
+const { logger } = require('../../logging');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('disable_titration')
@@ -8,10 +8,11 @@ module.exports = {
 	async execute(interaction, bot_instance) {
 		
 		bot_instance.disable_titration();
-
+		let content = `Titration disabled.`
+		logger.info(content);
 		await interaction.reply({
-			content: `Titration disabled.`,
-			ephemeral: true,
+			content,
+			ephemeral: false,
 		});
 	},
 };
