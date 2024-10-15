@@ -16,5 +16,5 @@ var logger = pino(
 );
 
 module.exports = {
-	logger
+	logger,
 };
