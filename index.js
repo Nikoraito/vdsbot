@@ -33,6 +33,7 @@ let bot_instance = {
 	BOT_ID: auth.BOT_ID,
 	APRROVAL_NOTIF_CHANNEL_ID: auth.APRROVAL_NOTIF_CHANNEL_ID,
 	ADMIN_NOTIF_CHANNEL_ID: auth.ADMIN_NOTIF_CHANNEL_ID,
+	MUTED_ROLE_ID: auth.MUTED_ROLE_ID,
 	mik_role: null,
 	info_channel: null,
 	admin_channel: null,
@@ -127,6 +128,11 @@ function initialize() {
 			bot_instance.ADMIN_NOTIF_CHANNEL_ID,
 		);
 		bot_instance.admin_channel.send(`I'm awake! :3`);
+
+		enable_titration(
+			bot_instance.max_ingresses_per_period,
+			bot_instance.wave_period_seconds,
+		);
 	});
 
 	client.login(auth.djs_token);
@@ -151,46 +157,48 @@ async function titrate(count) {
 	let users = await get_users();
 	users.sort((a, b) => a.joinedAt - b.joinedAt);
 	let oldest = await get_first_unapproved();
+	let msg = '';
 
 	if (oldest == null) {
-		let msg = 'Tried to titrate, but no unapproved users exist uwu';
+		msg = 'Tried to titrate, but everyone is already approved :3';
 		logger.debug(msg);
 		//todo: epheminize
 		//bot_instance.info_channel.send(msg);
 		return 0;
 	}
 
+	msg = 'The following users are now approved:\n';
 	let start_timestamp = oldest.joinedAt.getTime();
 	let titrated_users = [];
 
 	for await (let user of users) {
 		if (
 			user[1].joinedAt.getTime() >= start_timestamp &&
-			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)
+			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID) &&
+			!user[1].roles.cache.has(bot_instance.MUTED_ROLE_ID) // mikify users who do not have the muted role
 		) {
 			try {
 				apply_mik(user[1]);
 				titrated_users.push(user[1]);
+				msg += `${user[1].user}\n`;
 				ingresses++;
 			} catch {
-				let msg = `Failed to mikify ${user.username}`;
+				msg = `Failed to mikify ${user.username}`;
 				logger.error(msg);
 				bot_instance.admin_channel.send(msg);
 			}
-
-			if (ingresses + 1 > count) {
-				let msg = 'The following users are now approved:\n';
-
-				titrated_users.forEach((o) => {
-					msg += `${o.user}\n`;
-				});
-
-				bot_instance.info_channel.send(msg);
-
-				return ingresses;
-			}
 		}
 	}
+
+	if (ingresses > 0) {
+		bot_instance.info_channel.send(msg);
+	} else {
+		msg =
+			'Tried to titrate, but everyone except muted users are already approved!';
+		logger.info(msg);
+	}
+
+	return ingresses;
 }
 
 async function get_users() {
@@ -238,11 +246,16 @@ function enable_titration(desired_ingresses, period) {
 		if (!bot_instance.titrating) return;
 		titrate(desired_ingresses);
 	}, period * 1000);
+
+	logger.info(
+		`Starting titration with interval of ${desired_ingresses} users per ${period / 60.0} minutes.`,
+	);
 }
 
 function disable_titration() {
 	bot_instance.titrating = false;
 	clearInterval(bot_instance.titration_callback);
+	logger.info(`Ended titration.`);
 }
 
 async function get_first_unapproved() {
