@@ -4,7 +4,6 @@ const path = require('node:path');
 const { Client, Events, Collection, GatewayIntentBits } = require('discord.js');
 const { logger } = require('./logging');
 
-
 /**
  * Titration scheme
  *
@@ -82,7 +81,7 @@ function initialize() {
 				client.commands.set(command.data.name, command);
 			} else {
 				logger.warn(
-					`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+					`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
 				);
 			}
 		}
@@ -121,8 +120,12 @@ function initialize() {
 	client.once(Events.ClientReady, (readyClient) => {
 		logger.info(`Ready! Logged in as ${readyClient.user.tag}`);
 		bot_instance.guild = client.guilds.cache.get(bot_instance.GUILD_ID);
-		bot_instance.info_channel = client.channels.cache.get(bot_instance.APRROVAL_NOTIF_CHANNEL_ID);
-		bot_instance.admin_channel = client.channels.cache.get(bot_instance.ADMIN_NOTIF_CHANNEL_ID);
+		bot_instance.info_channel = client.channels.cache.get(
+			bot_instance.APRROVAL_NOTIF_CHANNEL_ID,
+		);
+		bot_instance.admin_channel = client.channels.cache.get(
+			bot_instance.ADMIN_NOTIF_CHANNEL_ID,
+		);
 		bot_instance.admin_channel.send(`I'm awake! :3`);
 	});
 
@@ -132,7 +135,7 @@ function initialize() {
 function apply_mik(user) {
 	if (bot_instance.guild != null && bot_instance.mik_role == null) {
 		bot_instance.mik_role = bot_instance.guild.roles.cache.get(
-			bot_instance.MIK_ROLE_ID
+			bot_instance.MIK_ROLE_ID,
 		);
 	}
 
@@ -148,6 +151,15 @@ async function titrate(count) {
 	let users = await get_users();
 	users.sort((a, b) => a.joinedAt - b.joinedAt);
 	let oldest = await get_first_unapproved();
+
+	if (oldest == null) {
+		let msg = 'Tried to titrate, but no unapproved users exist uwu';
+		logger.debug(msg);
+		//todo: epheminize
+		//bot_instance.info_channel.send(msg);
+		return 0;
+	}
+
 	let start_timestamp = oldest.joinedAt.getTime();
 	let titrated_users = [];
 
@@ -156,18 +168,6 @@ async function titrate(count) {
 			user[1].joinedAt.getTime() >= start_timestamp &&
 			!user[1].roles.cache.has(bot_instance.MIK_ROLE_ID)
 		) {
-			if (ingresses + 1 > count) {
-				let msg = 'The following users are now approved:\n';
-
-				titrated_users.forEach((o)=>{
-					msg += `${o.user}\n`
-				});
-			
-				bot_instance.info_channel.send(msg);
-
-				return ingresses;
-			}
-
 			try {
 				apply_mik(user[1]);
 				titrated_users.push(user[1]);
@@ -176,6 +176,18 @@ async function titrate(count) {
 				let msg = `Failed to mikify ${user.username}`;
 				logger.error(msg);
 				bot_instance.admin_channel.send(msg);
+			}
+
+			if (ingresses + 1 > count) {
+				let msg = 'The following users are now approved:\n';
+
+				titrated_users.forEach((o) => {
+					msg += `${o.user}\n`;
+				});
+
+				bot_instance.info_channel.send(msg);
+
+				return ingresses;
 			}
 		}
 	}
